@@ -4,6 +4,8 @@ from pathlib import Path
 import re
 import logging
 import os # For Path.home() if not directly using Path.home() for CONFIG_DIR_USER
+from typing import List, Any, TypeVar, Union
+import sys
 
 # --- Configuration File Handling ---
 CONFIG_FILENAME_LOCAL = "playlist_maker.conf" # Relative to script/package
@@ -12,7 +14,7 @@ CONFIG_FILENAME_USER = "config.ini" # Or "playlist_maker.conf" if you prefer con
 CONFIG_DIR_USER = Path.home() / ".config" / "playlist-maker"
 
 # Initialize config parser with a list converter
-def parse_list(value):
+def parse_list(value: str) -> List[str]:
     # Split by comma or whitespace, filter empty strings
     return [item.strip() for item in re.split(r'[,\s]+', value) if item.strip()]
 
@@ -22,12 +24,13 @@ config = configparser.ConfigParser(
 )
 
 # --- Config Helper Function ---
-def get_config_value(section, option, fallback=None, expected_type=str): # Renamed slightly for clarity
+T = TypeVar('T')
+def get_config_value(section: str, option: str, fallback: Any = None, expected_type: type = str) -> Any: # Renamed slightly for clarity
     """
     Retrieves a value from the loaded configparser object. Handles type conversion and fallbacks.
     Uses the 'config' object defined in this module.
     """
-    value = None
+    value: Any = None
     raw_value_for_log = "N/A"
     try:
         if expected_type == bool:
@@ -37,7 +40,9 @@ def get_config_value(section, option, fallback=None, expected_type=str): # Renam
         elif expected_type == float:
             value = config.getfloat(section, option)
         elif expected_type == list:
-            value = config.getlist(section, option) # Uses the custom converter
+            value = config.get(section, option, fallback=None)  # Get as string first
+            if value:
+                value = parse_list(value)  # Convert to list using our converter
         else: # Default to string
              value = config.get(section, option, fallback=None)
              if value == "":
@@ -63,7 +68,7 @@ def get_config_value(section, option, fallback=None, expected_type=str): # Renam
                       f"Using fallback: {fallback}. Error: {e}", exc_info=True)
         return fallback
 
-def load_config_files(project_root_path: Path):
+def load_config_files(project_root_path: Path) -> List[str]:
 
     config_path_local = project_root_path / CONFIG_FILENAME_LOCAL # Assumes .conf is at project root
     config_path_user_resolved = CONFIG_DIR_USER / CONFIG_FILENAME_USER # CONFIG_DIR_USER already Path.home()

@@ -7,6 +7,8 @@ from pathlib import Path
 import logging
 import mutagen # Ensure all mutagen submodules are imported if needed by get_file_metadata
 import mutagen.mp3, mutagen.flac, mutagen.oggvorbis, mutagen.mp4
+from typing import Optional, Dict, List, Tuple, Any
+import re
 
 from playlist_maker.utils.normalization_utils import (
     normalize_and_detect_specific_live_format,
@@ -17,17 +19,19 @@ from . import constants
 
 try:
     import pandas as pd
+    PandasType = type(pd)
 except ImportError:
     class DummyPandas:
-        def isna(self, val):
+        def isna(self, val: Any) -> bool:
             if val is None: return True
             try: return val != val
             except TypeError: return False
     pd = DummyPandas()
+    PandasType = type(pd)
     logging.info("LIB_SVC: Pandas not found, using dummy for duration checks.")
 
 class LibraryService:
-    def __init__(self, db_path: Path):
+    def __init__(self, db_path: Path) -> None:
         """
         Initialize the LibraryService with a SQLite database connection.
         
@@ -37,10 +41,10 @@ class LibraryService:
         The service will attempt to connect to the database and create necessary tables.
         If the connection fails, the service will still function but without caching.
         """
-        self.db_path = db_path
-        self.conn = None
-        self.cursor = None
-        self.library_index_memory: list[dict] = [] # For MatchingService
+        self.db_path: Path = db_path
+        self.conn: Optional[sqlite3.Connection] = None
+        self.cursor: Optional[sqlite3.Cursor] = None
+        self.library_index_memory: List[Dict[str, Any]] = [] # For MatchingService
         self._connect_db() # Try to connect on init
         if self.conn: # Only create tables if connection succeeded
             self._create_tables_if_not_exist()
@@ -48,7 +52,7 @@ class LibraryService:
             logging.error("LIB_SVC: Database connection failed on init. Cache will be unavailable.")
 
 
-    def _connect_db(self):
+    def _connect_db(self) -> None:
         try:
             self.db_path.parent.mkdir(parents=True, exist_ok=True) # Ensure 'data' dir exists
             self.conn = sqlite3.connect(self.db_path, timeout=10) # Added timeout
@@ -61,7 +65,7 @@ class LibraryService:
             self.conn = None # Ensure conn is None if connection fails
             self.cursor = None
 
-    def _create_tables_if_not_exist(self):
+    def _create_tables_if_not_exist(self) -> None:
         if not self.cursor: return
         try:
             # Library Tracks Table (existing)
@@ -94,89 +98,18 @@ class LibraryService:
             self.cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_last_added ON track_usage_stats (last_added_timestamp);")
             # --- END MODIFICATION ---
 
-            self.conn.commit()
+            if self.conn:
+                self.conn.commit()
             logging.debug("LIB_SVC: Ensured library_tracks and track_usage_stats tables and indexes exist.")
         except sqlite3.Error as e:
             logging.error(f"LIB_SVC: Error creating tables or indexes: {e}", exc_info=True)
 
-    # ... (get_file_metadata, _add_or_update_track_in_db, _get_cached_tracks_mtimes, _load_track_from_db_row are unchanged) ...
-    def get_file_metadata(self, file_path_obj: Path) -> tuple[str, str, str, int | None]:
-        """
-        Extract metadata from an audio file using mutagen.
-        
-        Args:
-            file_path_obj: Path to the audio file
-            
-        Returns:
-            Tuple of (artist, title, album, duration_in_seconds)
-            Duration will be None if not available or if there's an error
-        """
-        artist, title, album, duration = "", "", "", None
-        try:
-            audio = mutagen.File(file_path_obj, easy=True)
-            detailed_audio = mutagen.File(file_path_obj)
-            if audio:
-                artist_tags = audio.get("artist", []) or audio.get("albumartist", []) or audio.get("performer", [])
-                artist = artist_tags[0].strip() if artist_tags else ""
-                title_tags = audio.get("title", [])
-                title = title_tags[0].strip() if title_tags else ""
-                album_tags = audio.get("album", [])
-                album = album_tags[0].strip() if album_tags else ""
-            if detailed_audio and hasattr(detailed_audio, 'info') and hasattr(detailed_audio.info, 'length'):
-                try:
-                    duration_float = float(detailed_audio.info.length)
-                    if not pd.isna(duration_float): duration = int(duration_float)
-                except (ValueError, TypeError): duration = None
-            # logging for missing tags can be done here if desired
-        except mutagen.MutagenError as me:
-            logging.debug(f"LIB_SVC: Mutagen error reading {file_path_obj}: {me}")
-        except Exception as e:
-            logging.warning(f"LIB_SVC: Could not read metadata for {file_path_obj} due to {type(e).__name__}: {e}", exc_info=False)
-        return artist, title, album, duration
-
-    def _add_or_update_track_in_db(self, track_data: dict):
-        if not self.cursor: 
-            logging.warning("LIB_SVC: DB cursor not available, cannot update cache for {track_data['path']}")
-            return
-        try:
-            self.cursor.execute("""
-                INSERT OR REPLACE INTO library_tracks (
-                    path, artist, title, album, duration, filename_stem,
-                    norm_artist_stripped, norm_title_stripped, norm_filename_stripped,
-                    entry_is_live, file_modified_timestamp
-                ) VALUES (:path, :artist, :title, :album, :duration, :filename_stem,
-                          :norm_artist_stripped, :norm_title_stripped, :norm_filename_stripped,
-                          :entry_is_live, :file_modified_timestamp)
-            """, track_data) # Use named placeholders with dict
-        except sqlite3.Error as e:
-            logging.error(f"LIB_SVC: Error inserting/updating track {track_data.get('path')} in DB: {e}", exc_info=True)
-
-    def _get_cached_tracks_mtimes(self) -> dict[str, int]:
-        if not self.cursor: return {}
-        cached_files = {}
-        try:
-            for row in self.cursor.execute("SELECT path, file_modified_timestamp FROM library_tracks"):
-                cached_files[row['path']] = row['file_modified_timestamp']
-        except sqlite3.Error as e:
-            logging.error(f"LIB_SVC: Error fetching cached track mtimes: {e}", exc_info=True)
-        return cached_files
-
-    def _load_track_from_db_row(self, row: sqlite3.Row) -> dict:
-        return {
-            "path": row['path'], "artist": row['artist'], "title": row['title'], "album": row['album'],
-            "duration": row['duration'] if row['duration'] is not None else -1, # Ensure -1 for None
-            "filename_stem": row['filename_stem'],
-            "norm_artist_stripped": row['norm_artist_stripped'],
-            "norm_title_stripped": row['norm_title_stripped'],
-            "norm_filename_stripped": row['norm_filename_stripped'],
-            "entry_is_live": bool(row['entry_is_live'])
-        }
     
     # playlist_maker/core/library_service.py
 # ... (imports and other parts of the class up to scan_library) ...
 
-    def scan_library(self, scan_library_path_str: str, supported_extensions: tuple,
-                     live_album_keywords_regex, parenthetical_strip_regex, # These regex are from main
+    def scan_library(self, scan_library_path_str: str, supported_extensions: Tuple[str, ...],
+                     live_album_keywords_regex: re.Pattern[str], parenthetical_strip_regex: re.Pattern[str],
                      force_rescan: bool = False, use_cache: bool = True) -> bool:
         self.library_index_memory = [] # Reset in-memory index for this scan call
         scan_errors = 0
@@ -228,9 +161,11 @@ class LibraryService:
         elif force_rescan and cache_active:
             logging.info("LIB_SVC: Force rescan requested. Clearing existing library_tracks table.")
             try:
-                self.cursor.execute("DELETE FROM library_tracks;")
+                if self.cursor:
+                    self.cursor.execute("DELETE FROM library_tracks;")
                 # Note: We are NOT deleting from track_usage_stats here. That will be handled by pruning later.
-                self.conn.commit()
+                if self.conn:
+                    self.conn.commit()
                 logging.info("LIB_SVC: Force rescan: library_tracks table cleared.")
             except sqlite3.Error as e:
                 logging.error(f"LIB_SVC: Failed to clear library_tracks table for rescan: {e}", exc_info=True)
@@ -267,8 +202,9 @@ class LibraryService:
                 if cache_active and not force_rescan and abs_file_path_str in cached_mtimes:
                     if cached_mtimes[abs_file_path_str] == file_mtime:
                         try:
-                            self.cursor.execute("SELECT * FROM library_tracks WHERE path = ?", (abs_file_path_str,))
-                            row = self.cursor.fetchone()
+                            if self.cursor:
+                                self.cursor.execute("SELECT * FROM library_tracks WHERE path = ?", (abs_file_path_str,))
+                                row = self.cursor.fetchone()
                             if row:
                                 track_data_for_memory_index = self._load_track_from_db_row(row)
                             else:
@@ -308,27 +244,31 @@ class LibraryService:
                     self.library_index_memory.append(track_data_for_memory_index)
         # --- End of os.walk loop ---
 
-        if cache_active: self.conn.commit() # Commit all DB changes to library_tracks from the loop
+        if cache_active and self.conn: self.conn.commit() # Commit all DB changes to library_tracks from the loop
 
         # --- Pruning logic for track_usage_stats if force_rescan was used ---
         if force_rescan and cache_active and self.conn and self.cursor:
             logging.info("LIB_SVC: Force rescan: Pruning track_usage_stats for paths no longer in the rebuilt library_tracks...")
             try:
-                # Get all paths currently in track_usage_stats
-                self.cursor.execute("SELECT library_track_path FROM track_usage_stats")
-                stats_paths = {row['library_track_path'] for row in self.cursor.fetchall()}
+                if self.cursor:
+                    # Get all paths currently in track_usage_stats
+                    self.cursor.execute("SELECT library_track_path FROM track_usage_stats")
+                    stats_paths = {row['library_track_path'] for row in self.cursor.fetchall()}
 
-                # Get all paths now in the (rebuilt) library_tracks table
-                # No need to query library_tracks again, use current_filesystem_paths which represents
-                # all valid processed paths if force_rescan built everything anew.
-                # However, if some files failed processing during rescan, they wouldn't be in current_filesystem_paths
-                # OR in library_index_memory. A direct query from the library_tracks table is safer.
-                self.cursor.execute("SELECT path FROM library_tracks")
-                current_library_db_paths = {row['path'] for row in self.cursor.fetchall()}
+                    # Get all paths now in the (rebuilt) library_tracks table
+                    # No need to query library_tracks again, use current_filesystem_paths which represents
+                    # all valid processed paths if force_rescan built everything anew.
+                    # However, if some files failed processing during rescan, they wouldn't be in current_filesystem_paths
+                    # OR in library_index_memory. A direct query from the library_tracks table is safer.
+                    self.cursor.execute("SELECT path FROM library_tracks")
+                    current_library_db_paths = {row['path'] for row in self.cursor.fetchall()}
+                else:
+                    stats_paths = set()
+                    current_library_db_paths = set()
                 
                 paths_to_delete_from_stats = list(stats_paths - current_library_db_paths)
 
-                if paths_to_delete_from_stats:
+                if paths_to_delete_from_stats and self.cursor:
                     delete_batch_stats = [(p,) for p in paths_to_delete_from_stats]
                     self.cursor.executemany("DELETE FROM track_usage_stats WHERE library_track_path = ?", delete_batch_stats)
                     self.conn.commit() # Commit this specific pruning
@@ -347,21 +287,26 @@ class LibraryService:
             if deleted_paths_on_disk:
                 delete_batch_lib = [(p,) for p in deleted_paths_on_disk]
                 try:
-                    # Delete from library_tracks
-                    self.cursor.executemany("DELETE FROM library_tracks WHERE path = ?", delete_batch_lib)
-                    db_tracks_removed_count = self.cursor.rowcount if self.cursor.rowcount != -1 else len(delete_batch_lib)
-                    logging.info(f"LIB_SVC: Removed {db_tracks_removed_count} tracks from library_tracks (no longer on filesystem).")
+                    if self.cursor:
+                        # Delete from library_tracks
+                        self.cursor.executemany("DELETE FROM library_tracks WHERE path = ?", delete_batch_lib)
+                        db_tracks_removed_count = self.cursor.rowcount if self.cursor.rowcount != -1 else len(delete_batch_lib)
+                        logging.info(f"LIB_SVC: Removed {db_tracks_removed_count} tracks from library_tracks (no longer on filesystem).")
 
-                    # --- MODIFICATION: Explicitly delete from track_usage_stats ---
-                    # The paths in delete_batch_lib are the ones to remove from stats as well
-                    self.cursor.executemany("DELETE FROM track_usage_stats WHERE library_track_path = ?", delete_batch_lib)
-                    deleted_stats_count = self.cursor.rowcount if self.cursor.rowcount != -1 else 0 # Approximate
+                        # --- MODIFICATION: Explicitly delete from track_usage_stats ---
+                        # The paths in delete_batch_lib are the ones to remove from stats as well
+                        self.cursor.executemany("DELETE FROM track_usage_stats WHERE library_track_path = ?", delete_batch_lib)
+                        deleted_stats_count = self.cursor.rowcount if self.cursor.rowcount != -1 else 0 # Approximate
+                    else:
+                        db_tracks_removed_count = len(delete_batch_lib)
+                        deleted_stats_count = 0
                     if not force_rescan: # Only add to stats_tracks_pruned_count if not a force_rescan (where it's counted separately)
                          stats_tracks_pruned_count += deleted_stats_count
                     logging.info(f"LIB_SVC: Explicitly removed {deleted_stats_count} corresponding entries from track_usage_stats.")
                     # --- END MODIFICATION ---
 
-                    self.conn.commit()
+                    if self.conn:
+                        self.conn.commit()
                 except sqlite3.Error as e:
                     logging.error(f"LIB_SVC: Error removing deleted tracks/stats from DB cache: {e}", exc_info=True)
 
@@ -392,9 +337,7 @@ class LibraryService:
         return True
 
     # ... (get_library_index, record_track_usage, get_track_usage_stats, close_db remain as previously defined) ...
-    # Ensure `_add_or_update_track_in_db`, `_get_cached_tracks_mtimes`, `_load_track_from_db_row` are present
-    # and also `record_track_usage` and `get_track_usage_stats`
-    def get_file_metadata(self, file_path_obj: Path) -> tuple[str, str, str, int | None]:
+    def get_file_metadata(self, file_path_obj: Path) -> Tuple[str, str, str, Optional[int]]:
         artist, title, album, duration = "", "", "", None
         try:
             audio = mutagen.File(file_path_obj, easy=True)
@@ -417,34 +360,36 @@ class LibraryService:
             logging.warning(f"LIB_SVC: Could not read metadata for {file_path_obj} due to {type(e).__name__}: {e}", exc_info=False)
         return artist, title, album, duration
 
-    def _add_or_update_track_in_db(self, track_data: dict):
+    def _add_or_update_track_in_db(self, track_data: Dict[str, Any]) -> None:
         if not self.cursor: 
             logging.warning("LIB_SVC: DB cursor not available, cannot update cache for {track_data['path']}")
             return
         try:
-            self.cursor.execute("""
-                INSERT OR REPLACE INTO library_tracks (
-                    path, artist, title, album, duration, filename_stem,
-                    norm_artist_stripped, norm_title_stripped, norm_filename_stripped,
-                    entry_is_live, file_modified_timestamp
-                ) VALUES (:path, :artist, :title, :album, :duration, :filename_stem,
-                          :norm_artist_stripped, :norm_title_stripped, :norm_filename_stripped,
-                          :entry_is_live, :file_modified_timestamp)
-            """, track_data)
+            if self.cursor:
+                self.cursor.execute("""
+                    INSERT OR REPLACE INTO library_tracks (
+                        path, artist, title, album, duration, filename_stem,
+                        norm_artist_stripped, norm_title_stripped, norm_filename_stripped,
+                        entry_is_live, file_modified_timestamp
+                    ) VALUES (:path, :artist, :title, :album, :duration, :filename_stem,
+                              :norm_artist_stripped, :norm_title_stripped, :norm_filename_stripped,
+                              :entry_is_live, :file_modified_timestamp)
+                """, track_data)
         except sqlite3.Error as e:
             logging.error(f"LIB_SVC: Error inserting/updating track {track_data.get('path')} in DB: {e}", exc_info=True)
 
-    def _get_cached_tracks_mtimes(self) -> dict[str, int]:
+    def _get_cached_tracks_mtimes(self) -> Dict[str, int]:
         if not self.cursor: return {}
         cached_files = {}
         try:
-            for row in self.cursor.execute("SELECT path, file_modified_timestamp FROM library_tracks"):
-                cached_files[row['path']] = row['file_modified_timestamp']
+            if self.cursor:
+                for row in self.cursor.execute("SELECT path, file_modified_timestamp FROM library_tracks"):
+                    cached_files[row['path']] = row['file_modified_timestamp']
         except sqlite3.Error as e:
             logging.error(f"LIB_SVC: Error fetching cached track mtimes: {e}", exc_info=True)
         return cached_files
 
-    def _load_track_from_db_row(self, row: sqlite3.Row) -> dict:
+    def _load_track_from_db_row(self, row: sqlite3.Row) -> Dict[str, Any]:
         return {
             "path": row['path'], "artist": row['artist'], "title": row['title'], "album": row['album'],
             "duration": row['duration'] if row['duration'] is not None else -1,
@@ -455,7 +400,7 @@ class LibraryService:
             "entry_is_live": bool(row['entry_is_live'])
         }
 
-    def get_library_index(self) -> list[dict]:
+    def get_library_index(self) -> List[Dict[str, Any]]:
         """
         Get the in-memory library index for track matching.
         
@@ -464,7 +409,7 @@ class LibraryService:
         """
         return self.library_index_memory
 
-    def record_track_usage(self, library_track_path: str):
+    def record_track_usage(self, library_track_path: str) -> None:
         """
         Record that a track was added to a playlist for usage statistics.
         
@@ -479,25 +424,29 @@ class LibraryService:
             # Direct UPSERT, assuming library_track_path exists in library_tracks.
             # If library_track_path could be invalid, a SELECT 1 FROM library_tracks check first is safer.
             # However, record_track_usage should only be called for paths confirmed to be in the library.
-            self.cursor.execute("""
-                INSERT INTO track_usage_stats (library_track_path, times_added_to_playlist, last_added_timestamp)
-                VALUES (?, 1, ?)
-                ON CONFLICT(library_track_path) DO UPDATE SET
-                    times_added_to_playlist = times_added_to_playlist + 1,
-                    last_added_timestamp = excluded.last_added_timestamp;
-            """, (library_track_path, current_timestamp))
+            if self.cursor:
+                self.cursor.execute("""
+                    INSERT INTO track_usage_stats (library_track_path, times_added_to_playlist, last_added_timestamp)
+                    VALUES (?, 1, ?)
+                    ON CONFLICT(library_track_path) DO UPDATE SET
+                        times_added_to_playlist = times_added_to_playlist + 1,
+                        last_added_timestamp = excluded.last_added_timestamp;
+                """, (library_track_path, current_timestamp))
             self.conn.commit()
             logging.debug(f"LIB_SVC: Recorded usage for track '{library_track_path}'.")
         except sqlite3.Error as e:
             logging.error(f"LIB_SVC: Error recording track usage for '{library_track_path}': {e}", exc_info=True)
 
-    def get_track_usage_stats(self, library_track_path: str) -> dict | None:
+    def get_track_usage_stats(self, library_track_path: str) -> Optional[Dict[str, Any]]:
         if not self.cursor:
             logging.warning(f"LIB_SVC: DB not available, cannot get usage stats for '{library_track_path}'.")
             return None
         try:
-            self.cursor.execute("SELECT * FROM track_usage_stats WHERE library_track_path = ?", (library_track_path,))
-            row = self.cursor.fetchone()
+            if self.cursor:
+                self.cursor.execute("SELECT * FROM track_usage_stats WHERE library_track_path = ?", (library_track_path,))
+                row = self.cursor.fetchone()
+            else:
+                row = None
             if row:
                 return dict(row)
             return None
@@ -505,7 +454,7 @@ class LibraryService:
             logging.error(f"LIB_SVC: Error getting track usage stats for '{library_track_path}': {e}", exc_info=True)
             return None
 
-    def close_db(self):
+    def close_db(self) -> None:
         if self.conn:
             try:
                 self.conn.commit()

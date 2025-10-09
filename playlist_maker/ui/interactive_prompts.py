@@ -4,12 +4,20 @@ import random
 import sys
 from pathlib import Path
 from fuzzywuzzy import fuzz # Used in prompt_album_selection_or_skip
+from typing import List, Dict, Any, Optional, Union
+import re
 
 from .cli_interface import Colors, Symbols, colorize
 from playlist_maker.utils.normalization_utils import normalize_and_detect_specific_live_format # Used in prompt_album_selection_or_skip
 
-def prompt_user_for_choice(input_artist, input_track, candidates, artist_matches,
-                           input_live_format, threshold):
+def prompt_user_for_choice(
+    input_artist: str, 
+    input_track: str, 
+    candidates: List[Dict[str, Any]], 
+    artist_matches: List[Dict[str, Any]],
+    input_live_format: bool, 
+    threshold: int
+) -> Optional[Dict[str, Any]]:
     """ Presents choices to the user, Enter defaults to Skip. """
     print("-" * 70)
     print(f"{Colors.BOLD}{Colors.CYAN}INTERACTIVE PROMPT for:{Colors.RESET}")
@@ -17,7 +25,7 @@ def prompt_user_for_choice(input_artist, input_track, candidates, artist_matches
     print(f"  (Input Specified Live: {colorize(str(input_live_format), Colors.BOLD)})")
     print("-" * 70)
 
-    valid_choices = {}
+    valid_choices: Dict[str, Any] = {}
     numeric_choice_counter = 1
     displayed_candidate_count = 0
 
@@ -54,7 +62,7 @@ def prompt_user_for_choice(input_artist, input_track, candidates, artist_matches
         print(colorize("No direct title matches found by the matching service.", Colors.YELLOW))
 
     print(f"\n{Colors.UNDERLINE}Choose an action:{Colors.RESET}")
-    valid_choices['s'] = None # Skip action
+    valid_choices['s'] = 'skip' # Skip action
 
     prompt_options_list = ["S (default Enter)"] # Start building prompt options
     print(f"  {colorize('[S]', Colors.RED)}kip this track (default: Enter)")
@@ -116,7 +124,7 @@ def prompt_user_for_choice(input_artist, input_track, candidates, artist_matches
                         prompt_options_list = [opt for opt in prompt_options_list if opt != "R"]
                         continue # Re-prompt
 
-                elif selected_option is None: # User chose 's' (Skip) or defaulted to it
+                elif selected_option == 'skip': # User chose 's' (Skip) or defaulted to it
                     skip_method = "defaulted to Skip" if choice_was_empty_default else "chose [S]kip"
                     print(f"\n{colorize('Skipping track.', Colors.RED)}")
                     logging.info(f"INTERACTIVE: User {skip_method} for '{input_artist} - {input_track}'.")
@@ -140,10 +148,15 @@ def prompt_user_for_choice(input_artist, input_track, candidates, artist_matches
             logging.warning(f"INTERACTIVE: KeyboardInterrupt during prompt for '{input_artist} - {input_track}'. Assuming skip.")
             return None
 
-def prompt_album_selection_or_skip(input_artist, input_track, artist_library_entries,
-                                   input_live_format, threshold,
-                                   current_library_index,
-                                   parenthetical_strip_regex):
+def prompt_album_selection_or_skip(
+    input_artist: str, 
+    input_track: str, 
+    artist_library_entries: List[Dict[str, Any]],
+    input_live_format: bool, 
+    threshold: int,
+    current_library_index: List[Dict[str, Any]],
+    parenthetical_strip_regex: re.Pattern[str]
+) -> Optional[Dict[str, Any]]:
     print("-" * 70)
     print(f"{Colors.BOLD}{Colors.CYAN}INTERACTIVE ALBUM SELECTION for:{Colors.RESET}")
     print(f"  Input: {colorize(input_artist, Colors.BOLD)} - {colorize(input_track, Colors.BOLD)}")
@@ -255,7 +268,7 @@ def prompt_album_selection_or_skip(input_artist, input_track, artist_library_ent
                 # Inner loop for track selection from this album
                 while True:
                     print(f"\n{Colors.UNDERLINE}Tracks on '{chosen_album_title_original}' by '{input_artist}':{Colors.RESET}")
-                    track_choices_map = {}
+                    track_choices_map: Dict[str, Any] = {}
                     track_prompt_options_list = ["S (default Enter)", "B"] # Default Skip, Back always an option
 
                     track_idx = 1

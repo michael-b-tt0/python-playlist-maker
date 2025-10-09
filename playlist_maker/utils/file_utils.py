@@ -3,10 +3,11 @@ import re
 import os # For os.path.splitext
 import logging
 from datetime import datetime # Explicitly import if used directly, or ensure 'now' is datetime obj
+from typing import Optional
 
 # (Content of format_output_filename function as it is in your playlist_maker.py)
 # ...
-def format_output_filename(format_string, raw_basename, now: datetime, default_extension=".m3u"):
+def format_output_filename(format_string: Optional[str], raw_basename: str, now: datetime, default_extension: str = ".m3u") -> str:
     """
     Formats the output filename based on a format string, raw basename, and current time.
     """
@@ -17,7 +18,7 @@ def format_output_filename(format_string, raw_basename, now: datetime, default_e
         return f"{filename_stem}{default_extension}"
 
     # --- Helper for {basename:transforms} ---
-    def process_basename(current_basename, transform_codes_str):
+    def process_basename(current_basename: str, transform_codes_str: str) -> str:
         processed_name = current_basename
         transformed_separator = False
 
@@ -49,7 +50,7 @@ def format_output_filename(format_string, raw_basename, now: datetime, default_e
 
     final_filename_str = format_string
 
-    def basename_replacer(match):
+    def basename_replacer(match: re.Match[str]) -> str:
         transform_codes = match.group(1) 
         return process_basename(raw_basename, transform_codes)
     

@@ -2,17 +2,21 @@
 import os
 import json
 import logging
+from typing import Optional, List, Tuple, Dict, Any, Union
 # Ensure you have `pip install openai` and add it to requirements.txt
 try:
     from openai import OpenAI, APIError, APITimeoutError, RateLimitError
 except ImportError:
-    OpenAI = None # Allows script to load if openai is not installed, but AI features will fail.
-    APIError = APITimeoutError = RateLimitError = Exception # Dummy exceptions
+    # Create dummy classes for type checking when openai is not available
+    class OpenAI: pass
+    class APIError(Exception): pass
+    class APITimeoutError(Exception): pass  
+    class RateLimitError(Exception): pass
 
 class AIService:
-    def __init__(self, api_key: str | None, default_model: str):
-        self.client = None
-        self.default_model = default_model
+    def __init__(self, api_key: Optional[str], default_model: str) -> None:
+        self.client: Optional[OpenAI] = None
+        self.default_model: str = default_model
         
         if OpenAI is None:
             msg = "OpenAI library not installed. AI features are unavailable. Please run 'pip install openai'."
@@ -35,7 +39,7 @@ class AIService:
             logging.error(f"AI_SVC: Failed to initialize OpenAI client: {e}", exc_info=True)
             self.client = None # Ensure client is None on failure
 
-    def generate_playlist_from_prompt(self, prompt: str, model_override: str | None) -> list[tuple[str, str]]:
+    def generate_playlist_from_prompt(self, prompt: str, model_override: Optional[str]) -> List[Tuple[str, str]]:
         """
         Sends a prompt to the AI and expects a list of (Artist, Song) tuples.
         Uses OpenAI's chat completions with a tool for structured JSON output.

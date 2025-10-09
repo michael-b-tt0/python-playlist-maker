@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 import re # For regex compilation in main
 from datetime import datetime # For filename generation
+from typing import Optional, List, Dict, Any, Tuple, Union
 
 # --- Bootstrap Logging (runs when module is imported) ---
 # This ensures that any errors during the import process of app.py or its
@@ -58,16 +59,16 @@ from .core.ai_service import AIService
 # --- Global Application State (scoped to this module if possible, or passed around) ---
 # These are set by main() and used by functions it calls (or passed as params)
 INTERACTIVE_MODE: bool = False
-PARENTHETICAL_STRIP_REGEX = None # Compiled regex object
+PARENTHETICAL_STRIP_REGEX: Optional[re.Pattern[str]] = None # Compiled regex object
 
-def validate_api_key(api_key: str | None) -> bool:
+def validate_api_key(api_key: Optional[str]) -> bool:
     """Validate OpenAI API key format."""
     if not api_key:
         return False
     # Basic validation: OpenAI keys typically start with 'sk-' and are 51 characters
     return api_key.startswith('sk-') and len(api_key) >= 20
 
-def validate_file_path(file_path: str | Path) -> tuple[bool, str]:
+def validate_file_path(file_path: Union[str, Path]) -> Tuple[bool, str]:
     """Validate that a file path exists and is accessible."""
     try:
         path_obj = Path(file_path).resolve(strict=True)
@@ -83,7 +84,7 @@ def validate_file_path(file_path: str | Path) -> tuple[bool, str]:
         return False, f"Invalid path: {e}"
 
 
-def main(argv_list=None) -> dict: # main now explicitly returns a dict for status
+def main(argv_list: Optional[List[str]] = None) -> Dict[str, Any]: # main now explicitly returns a dict for status
     """
     Main application orchestration logic.
     
@@ -317,17 +318,13 @@ def main(argv_list=None) -> dict: # main now explicitly returns a dict for statu
     # --- 8. Initialize Services ---
     matching_service = MatchingService(INTERACTIVE_MODE) # Pass interactive status
     playlist_service = PlaylistService()
-    ai_service = AIService(api_key=final_ai_api_key_from_config, default_model=constants.DEFAULT_AI_MODEL)
+    ai_service: Optional[AIService] = None # Initialize
     try:
         library_service = LibraryService(db_path=library_index_db_full_path)
     except ConnectionError as e: # Catch DB connection error from LibraryService.__init__
         print(colorize(f"Error initializing library cache DB: {e}", Colors.RED), file=sys.stderr)
         logging.critical(f"MAIN: Failed to initialize LibraryService due to DB connection error: {e}", exc_info=True)
         return {"success": False, "error": f"Library cache DB init failed: {e}"}
-    
-    matching_service = MatchingService(INTERACTIVE_MODE)
-    playlist_service = PlaylistService()
-    ai_service = None # Initialize
     if args.ai_prompt:
         try:
             ai_service = AIService(api_key=final_ai_api_key_from_config, default_model=constants.DEFAULT_AI_MODEL)
@@ -470,6 +467,12 @@ def main(argv_list=None) -> dict: # main now explicitly returns a dict for statu
     # --- 10. Scan Music Library ---
     # library_service.scan_library prints its own progress and summary
     logging.info(f"MAIN: Starting library scan. Force rescan: {args.force_rescan}, Use cache: {final_enable_library_cache}")
+    # Ensure regex patterns are not None
+    if not live_album_keywords_regex_obj:
+        raise ValueError("Live album keywords regex is required but not configured")
+    if not PARENTHETICAL_STRIP_REGEX:
+        raise ValueError("Parenthetical strip regex is required but not configured")
+    
     scan_successful = library_service.scan_library(
         str(library_abs_path),
         final_supported_extensions_tuple,
@@ -502,7 +505,7 @@ def main(argv_list=None) -> dict: # main now explicitly returns a dict for statu
             input_artist_str, input_title_str,
             final_threshold, final_live_penalty,
             current_library_index, # Pass the scanned library index
-            PARENTHETICAL_STRIP_REGEX # Pass compiled regex (module-level global)
+            PARENTHETICAL_STRIP_REGEX # Pass compiled regex (module-level global) - already validated above
         )
 
         chosen_match_entry_dict = None # Will store the dict of the chosen track, or None

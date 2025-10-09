@@ -3,14 +3,15 @@ import logging
 import sys
 from pathlib import Path
 from datetime import datetime
+from typing import List, Tuple, Optional, Dict, Any
 
 from playlist_maker.ui.cli_interface import Colors, colorize # For any internal messages if needed
 
 class PlaylistService:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def read_input_playlist(self, playlist_file_path_str: str) -> list[tuple[str, str]]:
+    def read_input_playlist(self, playlist_file_path_str: str) -> List[Tuple[str, str]]:
         """Reads 'Artist - Track' lines, returns list of (artist, title) tuples."""
         tracks = []
         line_num = 0
@@ -39,17 +40,17 @@ class PlaylistService:
 
     def write_m3u_and_missing_files(
         self,
-        m3u_lines_content: list[str], # e.g., ["#EXTM3U", "#EXTINF:...", "path", ...]
-        skipped_track_inputs_for_file: list[str], # e.g., ["Artist - Title (Reason: ...)"]
+        m3u_lines_content: List[str], # e.g., ["#EXTM3U", "#EXTINF:...", "path", ...]
+        skipped_track_inputs_for_file: List[str], # e.g., ["Artist - Title (Reason: ...)"]
         output_m3u_filepath: Path, # Already resolved Path object
-        mpd_playlist_dir_str: str | None,
+        mpd_playlist_dir_str: Optional[str],
         missing_tracks_dir_path: Path, # Already resolved Path object
         input_playlist_path_for_header: str,
         total_input_tracks: int # For logging/UI context
-    ) -> dict: # Returns dict with paths of files written
+    ) -> Dict[str, Any]: # Returns dict with paths of files written
         """Writes the M3U, missing tracks file, and copies to MPD if specified."""
         
-        output_files_info = {"m3u_path": None, "missing_file_path": None, "mpd_copy_path": None}
+        output_files_info: Dict[str, Any] = {"m3u_path": None, "missing_file_path": None, "mpd_copy_path": None}
         found_count_in_m3u = (len(m3u_lines_content) - 1) // 2 if len(m3u_lines_content) > 0 else 0
 
         # --- Write M3U File ---

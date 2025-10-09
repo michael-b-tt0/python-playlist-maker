@@ -2,6 +2,7 @@
 import unicodedata
 import re
 import logging
+from typing import Tuple, Optional
 
 # PARENTHETICAL_STRIP_REGEX is currently a global.
 # Option 1: Pass it as an argument to functions that use it. (Preferred)
@@ -10,7 +11,7 @@ import logging
 
 # Let's go with Option 1 for normalize_and_detect_specific_live_format.
 
-def normalize_and_detect_specific_live_format(s, parenthetical_strip_regex=None): # Added regex as param
+def normalize_and_detect_specific_live_format(s: str, parenthetical_strip_regex: Optional[re.Pattern[str]] = None) -> Tuple[str, bool]: # Added regex as param
     """
     Normalizes a string for matching (handling '&', '/', 'and', feat., common suffixes in parens, leading articles)
     and specifically detects if it contains '(live)' format in the original casing structure.
@@ -44,7 +45,7 @@ def normalize_and_detect_specific_live_format(s, parenthetical_strip_regex=None)
     s_for_matching = re.sub(r'^\s*\d{1,3}[\s.-]+\s*', '', s_for_matching).strip() # Leading track numbers
     logging.debug(f"Norm Step 3 (Strip TrackNum): -> '{s_for_matching}'")
 
-    def process_parenthetical_content(match):
+    def process_parenthetical_content(match: re.Match[str]) -> str:
         content = match.group(1).strip().lower()
         logging.debug(f"Norm Step 4a (Examining Parenthesis): Content='{content}'")
 
@@ -76,12 +77,12 @@ def normalize_and_detect_specific_live_format(s, parenthetical_strip_regex=None)
 
     return s_for_matching, is_live_format
 
-def normalize_string_for_matching(s, parenthetical_strip_regex=None): # Added regex as param
+def normalize_string_for_matching(s: str, parenthetical_strip_regex: Optional[re.Pattern[str]] = None) -> str: # Added regex as param
     """Just returns the normalized string part for general matching."""
     stripped_s, _ = normalize_and_detect_specific_live_format(s, parenthetical_strip_regex) # Pass it on
     return stripped_s
 
-def check_album_for_live_indicators(album_title_str, live_keywords_regex, parenthetical_strip_regex=None): # Added regex as param
+def check_album_for_live_indicators(album_title_str: str, live_keywords_regex: Optional[re.Pattern[str]], parenthetical_strip_regex: Optional[re.Pattern[str]] = None) -> bool: # Added regex as param
     """ Checks album title using standard normalization and regex/specific format. """
     if not isinstance(album_title_str, str) or not album_title_str:
         return False

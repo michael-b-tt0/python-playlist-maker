@@ -13,6 +13,7 @@ import sys
 import os
 from datetime import datetime
 from pathlib import Path # For SCRIPT_DIR if used for sys.path
+from typing import Optional, Dict, Any, List
 
 # --- Crucial Imports for New Structure ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -39,10 +40,10 @@ except ImportError as e:
 
 # --- TkinterLogHandler (no changes needed to its internal logic) ---
 class TkinterLogHandler(logging.Handler):
-    def __init__(self, text_widget_for_logging): # Changed parameter name for clarity
+    def __init__(self, text_widget_for_logging: tk.Text) -> None: # Changed parameter name for clarity
         super().__init__()
-        self.text_widget = text_widget_for_logging # Assign the passed text widget
-        self.queue = queue.Queue()
+        self.text_widget: tk.Text = text_widget_for_logging # Assign the passed text widget
+        self.queue: queue.Queue[logging.LogRecord] = queue.Queue()
 
         # Define color tags in the text widget
         # These should use self.text_widget
@@ -56,10 +57,10 @@ class TkinterLogHandler(logging.Handler):
         # Start polling the queue
         self.text_widget.after(100, self.poll_log_queue)
 
-    def emit(self, record: logging.LogRecord):
+    def emit(self, record: logging.LogRecord) -> None:
         self.queue.put(record)
 
-    def poll_log_queue(self):
+    def poll_log_queue(self) -> None:
         try:
             while True:
                 record = self.queue.get(block=False)
@@ -69,7 +70,7 @@ class TkinterLogHandler(logging.Handler):
                 effective_tag = level_name_tag
                 if level_name_tag not in self.text_widget.tag_names(): # Check if tag exists
                     effective_tag = "INFO" # Fallback
-                    if not hasattr(self, '_warned_unknown_tags'): self._warned_unknown_tags = set()
+                    if not hasattr(self, '_warned_unknown_tags'): self._warned_unknown_tags: set[str] = set()
                     if level_name_tag not in self._warned_unknown_tags:
                         logging.debug(f"GUI Log Handler: Unknown log level '{level_name_tag}', using INFO style.")
                         self._warned_unknown_tags.add(level_name_tag)
@@ -87,8 +88,8 @@ class TkinterLogHandler(logging.Handler):
 
 
 class PlaylistMakerGUI:
-    def __init__(self, root_window: ttk.Window): # Expecting a ttkbootstrap.Window
-        self.root = root_window
+    def __init__(self, root_window: ttk.Window) -> None: # Expecting a ttkbootstrap.Window
+        self.root: ttk.Window = root_window
         self.root.title(f"Playlist Maker GUI v{pm_constants.VERSION}")
 
         # --- Apply a ttk theme and default font ---

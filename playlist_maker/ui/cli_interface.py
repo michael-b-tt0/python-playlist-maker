@@ -1,5 +1,6 @@
 # playlist_maker/ui/cli_interface.py
 import sys
+from typing import Literal
 
 _IS_TTY = sys.stdout.isatty() # Basic check if we're likely in a TTY
 
@@ -23,7 +24,7 @@ class Symbols:
     BULLET  = "[•]" if _IS_TTY else "*"  # For list items in prompts
     ELLIPSIS= "..."
 
-def colorize(text, color_code):
+def colorize(text: str, color_code: str) -> str:
     """Wraps text with ANSI color codes, if supported."""
     return f"{color_code}{text}{Colors.RESET}"
 

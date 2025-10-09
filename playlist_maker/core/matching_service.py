@@ -2,6 +2,7 @@
 import logging
 from pathlib import Path
 from fuzzywuzzy import fuzz # Make sure this is available or add to requirements
+import re
 
 # Normalization utils are needed
 from playlist_maker.utils.normalization_utils import normalize_and_detect_specific_live_format
@@ -26,8 +27,8 @@ class InteractionRequired:
         self.match_threshold = match_threshold
 
 class MatchingService:
-    def __init__(self, interactive_mode: bool):
-        self.interactive_mode = interactive_mode
+    def __init__(self, interactive_mode: bool) -> None:
+        self.interactive_mode: bool = interactive_mode
         # Potentially store live_penalty_factor if it's constant for the service instance
         # self.live_penalty_factor = live_penalty_factor # If passed during init
 
@@ -38,7 +39,7 @@ class MatchingService:
         match_threshold: int,
         live_penalty_factor: float, # Pass it per call, or set during __init__
         current_library_index: List[Dict[str, Any]],
-        parenthetical_strip_regex # Compiled regex
+        parenthetical_strip_regex: re.Pattern[str]
     ) -> Union[Optional[Dict[str, Any]], InteractionRequired]: # Return type
 
         norm_input_artist_match_str, input_artist_has_live_format = normalize_and_detect_specific_live_format(input_artist, parenthetical_strip_regex)

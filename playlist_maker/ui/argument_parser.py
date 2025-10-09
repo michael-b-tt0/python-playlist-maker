@@ -2,9 +2,10 @@
 import argparse
 from pathlib import Path
 from playlist_maker.core import constants 
-from .cli_interface import Colors 
+from .cli_interface import Colors
+from typing import Optional, List 
 
-def parse_arguments(argv_list=None):
+def parse_arguments(argv_list: Optional[List[str]] = None) -> argparse.Namespace:
     """
     Parse command-line arguments for the Playlist Maker application.
     
