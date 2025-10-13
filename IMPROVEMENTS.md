@@ -77,6 +77,7 @@ This document tracks potential improvements, enhancements, and optimizations for
 ## 🛠️ Technical Improvements
 
 ### Code Quality
+- [ ] **Refactor `scan_library` Method**: Break down the large `scan_library` method in `LibraryService` into smaller, single-responsibility private methods (e.g., for fetching filesystem tracks, pruning the DB, synchronizing changes) to reduce complexity and improve readability.
 - [ ] **Type Hints**: Complete type annotation coverage
 - [ ] **Documentation**: API documentation with Sphinx
 - [ ] **Code Coverage**: Achieve >90% test coverage
@@ -84,6 +85,9 @@ This document tracks potential improvements, enhancements, and optimizations for
 - [ ] **CI/CD**: GitHub Actions for automated testing and deployment
 
 ### Architecture
+- [ ] **Consolidate Configuration Logic**: Refactor the scattered configuration logic from `app.py` into `config/manager.py`. Create a single function or class to handle the hierarchy (CLI args > config file > defaults) to improve maintainability and adhere to the DRY principle.
+- [ ] **Decouple Core Services from UI**: Remove direct `print()` calls from core services like `LibraryService`. Use the `logging` module for informational messages and implement a callback system for progress updates to better separate core logic from the UI.
+- [ ] **Centralize Path Management**: Create a dedicated utility or class to handle all path resolutions (e.g., `os.path.expanduser`, `Path.resolve()`) at startup. This ensures all paths are absolute and validated early, preventing inconsistencies.
 - [ ] **Plugin System**: Modular architecture for custom matching algorithms
 - [ ] **Event System**: Pub/sub pattern for loose coupling
 - [ ] **Configuration UI**: GUI for editing configuration files
