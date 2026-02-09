@@ -8,9 +8,9 @@ services:
     stdin_open: true
     tty: true
     environment: 
-      # Pass the OpenAI API key from the host's .env file (or host environment)
-      # into the container as an environment variable also named OPENAI_API_KEY.
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Pass the Google Gemini API key from the host's .env file (or host environment)
+      # into the container as an environment variable also named GOOGLE_API_KEY.
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     volumes:
       - ${HOST_CONFIG_FILE:-./docker_playlist_maker.conf}:/app/playlist_maker.conf:ro
       - ${HOST_DATA_DIR:-./data_docker}:/app/data

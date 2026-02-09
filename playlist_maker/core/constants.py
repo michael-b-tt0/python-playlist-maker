@@ -27,8 +27,8 @@ DEFAULT_ENABLE_LIBRARY_CACHE = True
 DEFAULT_LIBRARY_INDEX_DB_FILENAME = "library_index.sqlite" # Just the filename
 
 # --- AI Defaults ---
-DEFAULT_AI_PROVIDER = "openai" # For future expansion if other providers are added
-DEFAULT_AI_MODEL = "gpt-3.5-turbo" # A common, cost-effective default
+DEFAULT_AI_PROVIDER = "google" # For future expansion if other providers are added
+DEFAULT_AI_MODEL = "gemini-2.0-flash" # A common, cost-effective default
 
 DEFAULT_SAVE_AI_SUGGESTIONS = True
 DEFAULT_AI_SUGGESTIONS_LOG_DIR = "./ai-suggestions"
