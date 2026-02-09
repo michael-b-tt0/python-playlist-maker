@@ -1,6 +1,6 @@
 # Playlist Maker (.m3u)
 
-This Python application intelligently converts user inputs—either from AI-generated prompts (via OpenAI) or local text files listing `Artist - Track`—into `.m3u` playlists. It matches these inputs against your local music library using advanced string matching and metadata analysis, creating playlists compatible with a wide range of music players.
+This Python application intelligently converts user inputs—either from AI-generated prompts (via Google Gemini) or local text files listing `Artist - Track`—into `.m3u` playlists. It matches these inputs against your local music library using advanced string matching and metadata analysis, creating playlists compatible with a wide range of music players.
 
 ## Concept
 
@@ -11,7 +11,7 @@ The core idea is to streamline playlist creation for your personal music library
 Playlist Maker scans your music library, building a smart index of your tracks (including artist, title, album, duration, live recording status, and file modification times). This index is then cached in an SQLite database for significantly faster startups on subsequent runs.
 
 When you provide an input (an AI prompt or a text file):
-1.  If using an AI prompt, the application queries OpenAI (GPT models) to generate a list of `Artist - Song` suggestions. You can preview and accept/reject this list.
+1.  If using an AI prompt, the application queries Google Gemini to generate a list of `Artist - Song` suggestions. You can preview and accept/reject this list.
 2.  The accepted track list (from AI or file) is then processed. Each entry is fuzzi-matched against your cached library index.
 3.  An M3U playlist is generated with relative paths (based on your MPD music directory configuration), ready for use in various music players.
 4.  An interactive mode helps resolve ambiguities, and a report lists any tracks that couldn't be matched.
@@ -45,8 +45,8 @@ And finally, when the playlist is ready:
 ## Features
 
 - **AI-Powered Playlist Generation (New!):**
-    - Optionally generate an initial "Artist - Track" list using an AI prompt (e.g., via OpenAI's GPT models).
-    - Requires configuration of an API key (OpenAI).
+    - Optionally generate an initial "Artist - Track" list using an AI prompt (e.g., via Google Gemini models).
+    - Requires configuration of an API key (Google Gemini).
     - Allows user to preview and confirm the AI-generated list before processing.
     - Generated list is then matched against your local library like a text file input.
 - **Text List Input:** Reads simple `.txt` files with one `Artist - Track` per line.
@@ -81,7 +81,7 @@ And finally, when the playlist is ready:
     - `mutagen`
     - `fuzzywuzzy`
     - `python-levenshtein` (Recommended for `fuzzywuzzy` performance)
-    - `openai` (For AI playlist generation)
+    - `google-genai` (For AI playlist generation)
     - `pandas` (Optional, for enhanced duration checks; script has a fallback)
 
 ## Installation
@@ -94,7 +94,7 @@ And finally, when the playlist is ready:
     mutagen
     fuzzywuzzy
     python-levenshtein
-    openai>=1.3.0  # Specify a version or a minimum version for openai
+    google-genai
     # pandas # Optional: uncomment if you want to install pandas
     ```
 
@@ -187,7 +187,7 @@ python run_cli.py input_playlist.txt
 python run_cli.py --ai-prompt "Acoustic songs for a rainy afternoon"
 
 # AI prompt with specific model and interactive mode
-python run_cli.py -i --ai-prompt "Obscure 70s psych rock" --ai-model gpt-4-turbo-preview
+python run_cli.py -i --ai-prompt "Obscure 70s psych rock" --ai-model gemini-2.0-flash
 ```
 
 **Help Output:**
@@ -245,7 +245,7 @@ options:
   -v, --version         Show program's version number and exit.
 
 AI Playlist Generation Options (used with --ai-prompt):
-  --ai-model AI_MODEL   Specify the AI model to use (e.g., gpt-4-turbo-preview). Cfg: AI.model, PyDef: gpt-3.5-turbo (default: None)
+  --ai-model AI_MODEL   Specify the AI model to use (e.g., gemini-2.0-flash). Cfg: AI.model, PyDef: gemini-2.0-flash (default: None)
 ```
 
 **Configuration Files**
@@ -284,13 +284,13 @@ extensions = .mp3 .flac .opus .m4a .ogg
 interactive = false
 
 [AI]
-# Your OpenAI API key. Can be set here or via OPENAI_API_KEY environment variable.
-# If left blank and OPENAI_API_KEY is not set, AI features will be disabled when an AI prompt is used.
-api_key = YOUR_OPENAI_API_KEY_GOES_HERE
+# Your Google Gemini API key. Can be set here or via GOOGLE_API_KEY environment variable.
+# If left blank and GOOGLE_API_KEY is not set, AI features will be disabled when an AI prompt is used.
+api_key = YOUR_GOOGLE_API_KEY_GOES_HERE
 
 # Default AI model to use if --ai-model is not specified on the command line.
-# Examples: gpt-3.5-turbo, gpt-4-turbo-preview, gpt-4
-model = gpt-3.5-turbo
+# Examples: gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro
+model = gemini-2.0-flash
 
 [Cache]
 # Enable the persistent library index cache for faster startup on subsequent runs.

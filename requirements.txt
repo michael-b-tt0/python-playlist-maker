@@ -2,7 +2,7 @@
 mutagen
 fuzzywuzzy
 python-levenshtein
-openai>=1.3.0  # Specify a version or a minimum version for openai
+google-genai
 ttkbootstrap
 mypy>=1.0.0  # Type checking
 # pandas # Optional

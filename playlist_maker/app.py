@@ -62,11 +62,11 @@ INTERACTIVE_MODE: bool = False
 PARENTHETICAL_STRIP_REGEX: Optional[re.Pattern[str]] = None # Compiled regex object
 
 def validate_api_key(api_key: Optional[str]) -> bool:
-    """Validate OpenAI API key format."""
+    """Validate AI API key format."""
     if not api_key:
         return False
-    # Basic validation: OpenAI keys typically start with 'sk-' and are 51 characters
-    return api_key.startswith('sk-') and len(api_key) >= 20
+    # Basic validation: Gemini keys are typically around 39-40 characters
+    return len(api_key) >= 20
 
 def validate_file_path(file_path: Union[str, Path]) -> Tuple[bool, str]:
     """Validate that a file path exists and is accessible."""
@@ -353,17 +353,17 @@ def main(argv_list: Optional[List[str]] = None) -> Dict[str, Any]: # main now ex
         
         # Validate API key if provided
         if final_ai_api_key_from_config and not validate_api_key(final_ai_api_key_from_config):
-            print(colorize("Warning: API key format appears invalid (should start with 'sk-' and be at least 20 characters)", Colors.YELLOW), file=sys.stderr)
+            print(colorize("Warning: API key format appears invalid (should be at least 20 characters)", Colors.YELLOW), file=sys.stderr)
         
         if not ai_service or not ai_service.client: # Check if ai_service was initialized and client is ready
             print(colorize("Error: AI Service not available.", Colors.RED), file=sys.stderr)
-            print(colorize("  • Check that your OpenAI API key is set in config file or OPENAI_API_KEY environment variable", Colors.YELLOW), file=sys.stderr)
-            print(colorize("  • Ensure 'openai' library is installed: pip install openai", Colors.YELLOW), file=sys.stderr)
+            print(colorize("  • Check that your Google API key is set in config file or GOOGLE_API_KEY environment variable", Colors.YELLOW), file=sys.stderr)
+            print(colorize("  • Ensure 'google-genai' library is installed: pip install google-genai", Colors.YELLOW), file=sys.stderr)
             print(colorize("  • Verify your API key is valid and has sufficient credits", Colors.YELLOW), file=sys.stderr)
             if library_service: library_service.close_db()
             return {"success": False, "error": "AI Service not available (API key/library issue)."}
         try:
-            print(f"{Symbols.INFO} Calling OpenAI API to generate playlist...")
+            print(f"{Symbols.INFO} Calling Google Gemini API to generate playlist...")
             input_track_tuples = ai_service.generate_playlist_from_prompt(args.ai_prompt, effective_ai_model)
             
             if not input_track_tuples:
