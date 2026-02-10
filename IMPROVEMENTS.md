@@ -71,7 +71,6 @@ This document tracks potential improvements, enhancements, and optimizations for
 - [ ] **Web Interface**: Browser-based GUI using Flask/FastAPI
 - [ ] **Desktop App**: PyInstaller/Electron packaging for distribution
 - [ ] **System Service**: Background daemon for automatic playlist generation
-- [ ] **Cloud Deployment**: Docker Compose with cloud storage integration
 - [ ] **Mobile App**: React Native or Flutter mobile interface
 
 ## 🛠️ Technical Improvements
