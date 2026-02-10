@@ -4,5 +4,7 @@ fuzzywuzzy
 python-levenshtein
 google-genai
 ttkbootstrap
-mypy>=1.0.0  # Type checking
+pandas
+
+
 # pandas # Optional

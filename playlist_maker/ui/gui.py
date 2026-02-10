@@ -135,12 +135,12 @@ class PlaylistMakerGUI:
             logging.warning(f"GUI: Could not set default font style: {e}")
 
 
-        main_frame = ttk.Frame(self.root, padding="10 10 10 10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame = ttk.Frame(self.root)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # --- Input Source Frame (File or AI) ---
-        input_source_frame = ttk.LabelFrame(main_frame, text="Input Source", padding="10 10")
-        input_source_frame.pack(fill=tk.X, pady=(0,10))
+        input_source_frame = ttk.LabelFrame(main_frame, text="Input Source")
+        input_source_frame.pack(fill=tk.X, padx=10, pady=(0,10))
         
         self.input_mode_var = tk.StringVar(value="file")
         row_idx = 0
@@ -192,8 +192,8 @@ class PlaylistMakerGUI:
         input_source_frame.columnconfigure(1, weight=1)
 
         # --- Paths Frame ---
-        paths_frame = ttk.LabelFrame(main_frame, text="Paths", padding="10 10")
-        paths_frame.pack(fill=tk.X, pady=(0,10))
+        paths_frame = ttk.LabelFrame(main_frame, text="Paths")
+        paths_frame.pack(fill=tk.X, pady=(0,10), padx=10)
         
         row_idx = 0
         ttk.Label(paths_frame, text="Music Library Path:").grid(row=row_idx, column=0, sticky=tk.W, padx=5, pady=5)
@@ -219,12 +219,12 @@ class PlaylistMakerGUI:
 
 
         # --- Options Frame ---
-        options_frame = ttk.LabelFrame(main_frame, text="Options", padding="10 10")
-        options_frame.pack(fill=tk.X, pady=(0,10))
+        options_frame = ttk.LabelFrame(main_frame, text="Options")
+        options_frame.pack(fill=tk.X, pady=(0,10), padx=10)
 
         # Sub-frame for matching options
-        matching_options_subframe = ttk.Frame(options_frame, padding="0 0 0 5")
-        matching_options_subframe.pack(fill=tk.X)
+        matching_options_subframe = ttk.Frame(options_frame)
+        matching_options_subframe.pack(fill=tk.X, padx=10, pady=(0,5))
 
         ttk.Label(matching_options_subframe, text="Match Threshold (0-100):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.threshold_var = tk.IntVar(value=pm_constants.DEFAULT_MATCH_THRESHOLD)
@@ -237,8 +237,8 @@ class PlaylistMakerGUI:
         self.live_penalty_spinbox.grid(row=0, column=3, sticky=tk.W, padx=5, pady=5)
         
         # Sub-frame for general boolean options
-        general_options_subframe = ttk.Frame(options_frame, padding="0 5 0 5")
-        general_options_subframe.pack(fill=tk.X)
+        general_options_subframe = ttk.Frame(options_frame)
+        general_options_subframe.pack(fill=tk.X, padx=10, pady=5)
 
         self.interactive_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(general_options_subframe, text="Use Console Interactive Mode (CLI Prompts)", variable=self.interactive_var).grid(row=0, column=0, sticky=tk.W, columnspan=2, pady=5)
@@ -258,8 +258,8 @@ class PlaylistMakerGUI:
         general_options_subframe.columnconfigure(1, weight=1)
 
         # Sub-frame for AI, Logging, Output Format
-        adv_options_subframe = ttk.Frame(options_frame, padding="0 5 0 5")
-        adv_options_subframe.pack(fill=tk.X)
+        adv_options_subframe = ttk.Frame(options_frame)
+        adv_options_subframe.pack(fill=tk.X, padx=10, pady=5)
 
         ttk.Label(adv_options_subframe, text="AI Model (optional):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
         self.ai_model_entry = ttk.Entry(adv_options_subframe, width=25)
@@ -280,8 +280,8 @@ class PlaylistMakerGUI:
         adv_options_subframe.columnconfigure(1, weight=1) # Allow output format entry to expand slightly
 
         # --- Action Frame ---
-        action_frame = ttk.Frame(main_frame, padding="0 10 0 0")
-        action_frame.pack(fill=tk.X)
+        action_frame = ttk.Frame(main_frame)
+        action_frame.pack(fill=tk.X, padx=10, pady=(10,0))
         self.generate_button = ttk.Button(action_frame, text="Generate Playlist", command=self.run_generate_playlist_thread, style="Accent.TButton") # Example of custom style
         # To define Accent.TButton style:
         # self.style.configure("Accent.TButton", font=('Segoe UI', 10, 'bold'), padding=10)
@@ -289,8 +289,8 @@ class PlaylistMakerGUI:
         self.generate_button.pack(pady=10) # Centered with some vertical padding
 
         # --- Log Output Frame ---
-        log_frame = ttk.LabelFrame(main_frame, text="Log Output", padding="10 10")
-        log_frame.pack(fill=tk.BOTH, expand=True, pady=(5,0))
+        log_frame = ttk.LabelFrame(main_frame, text="Log Output")
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=(5,0), padx=10)
         self.log_text_area = scrolledtext.ScrolledText(log_frame, height=15, width=80, state='disabled', wrap=tk.WORD, relief=tk.SUNKEN, borderwidth=1)
         # self.log_text_area.configure(font=("Consolas", 9)) # Example of specific font for log
         self.log_text_area.pack(fill=tk.BOTH, expand=True)
