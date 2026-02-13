@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from playlist_maker.ui.cli_interface import colorize, Colors # Import from the new location
 
-def setup_logging(log_file_path: Path, log_mode: str): # Added type hints for clarity
+def setup_logging(log_file_path: Path, log_mode: str, clean_handlers: bool = True): # Added clean_handlers arg
     """Configures logging to file and console."""
     filemode = 'a' if log_mode == 'append' else 'w'
     log_file_str = ""
@@ -29,26 +29,42 @@ def setup_logging(log_file_path: Path, log_mode: str): # Added type hints for cl
              print(colorize(f"ERROR: Could not determine fallback log path: {fallback_e}", Colors.RED), file=sys.stderr)
              return
 
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-        handler.close()
+    if clean_handlers:
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+            handler.close()
 
     try:
-        logging.basicConfig(
-            level=logging.DEBUG,
-            format="%(asctime)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s",
-            filename=log_file_str,
-            filemode=filemode,
-            force=True
-        )
+        # Configure the root logger
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG) # Catch everything
+
+        # File Handler
+        file_handler = logging.FileHandler(log_file_str, mode=filemode)
+        file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - [%(funcName)s:%(lineno)d] - %(message)s"))
+        file_handler.setLevel(logging.DEBUG)
+        
+        # Add File Handler if not already present (simple check to avoid dupes if clean_handlers=False)
+        # In clean=False mode, if we run multiple times, we might add multiple file handlers?
+        # Let's check if a FileHandler for this path already exists
+        already_has_file = any(isinstance(h, logging.FileHandler) and h.baseFilename == os.path.abspath(log_file_str) for h in logger.handlers)
+        if not already_has_file:
+            logger.addHandler(file_handler)
+
         console_handler = logging.StreamHandler(sys.stderr)
-        console_handler.setLevel(logging.WARNING)
+        console_handler.setLevel(logging.WARNING) # Keeping default warning for stderr
         # Use the imported Colors
         formatter = logging.Formatter(f'{Colors.YELLOW}%(levelname)s:{Colors.RESET} [%(funcName)s] %(message)s')
         console_handler.setFormatter(formatter)
-        logger = logging.getLogger()
-        if not any(isinstance(h, logging.StreamHandler) and h.stream == sys.stderr for h in logger.handlers):
+        
+        if clean_handlers:
              logger.addHandler(console_handler)
+        else:
+             # If preserving handlers, checking if we have a stream handler for stderr specifically might be good, 
+             # but we likely have the GUI handler. We can add this one too if we want stderr output as well.
+             if not any(isinstance(h, logging.StreamHandler) and h.stream == sys.stderr for h in logger.handlers):
+                  logger.addHandler(console_handler)
+
 
     except Exception as e:
          # Use the imported colorize and Colors

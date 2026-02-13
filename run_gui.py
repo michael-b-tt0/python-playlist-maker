@@ -22,12 +22,9 @@ if __name__ == "__main__":
     # List of themes: litera, cosmo, flatly, journal, lumen, minty, pulse, sandstone,
     # united, yeti, cyborg, darkly, solar, superhero (dark themes)
     # See ttkbootstrap docs for more.
-    try:
-        root = ttk.Window(themename="cyborg") 
-    except Exception as e:
-        logging.error(f"RUN_GUI: Failed to initialize ttkbootstrap: {e}. Falling back.")
-        root = tk.Tk() # Use the imported tk for fallback
-        messagebox.showwarning("Theming Error", "Could not apply custom theme. Using default look.") # Now messagebox is defined
+    
+    root = ttk.Window(themename="cyborg")
+    
 
 
     root.title("Playlist Maker GUI") # You can set title here or in PlaylistMakerGUI

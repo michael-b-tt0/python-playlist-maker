@@ -19,7 +19,7 @@ if __name__ == "__main__":
             # If main explicitly returns a failure status, exit with 1.
             # Error messages should have been printed by main or its sub-components.
             if run_status.get("error"): # Optionally print error if main didn't already
-                 print(colorize(f"Application failed: {run_status.get('error')}", Colors.RED), file=sys.stderr)
+                print(colorize(f"Application failed: {run_status.get('error')}", Colors.RED), file=sys.stderr)
             sys.exit(1)
         # If main returns an integer, assume it's an exit code (though dict is preferred)
         elif isinstance(run_status, int):

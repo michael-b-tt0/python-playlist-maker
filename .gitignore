@@ -28,6 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+albums.csv
 
 # PyInstaller
 # Usually these files are created by pyinstaller, if you bundle your script

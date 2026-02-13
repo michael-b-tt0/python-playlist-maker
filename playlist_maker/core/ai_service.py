@@ -1,6 +1,8 @@
 # playlist_maker/core/ai_service.py
 import os
 import json
+import csv
+import io
 import logging
 from typing import Optional, List, Tuple, Dict, Any, Union
 
@@ -20,6 +22,7 @@ except ImportError:
         class FunctionCallingConfig: pass
         class FunctionDeclaration: pass
         class Schema: pass
+        class Part: pass
 
 class AIService:
     def __init__(self, api_key: Optional[str], default_model: str) -> None:
@@ -50,20 +53,43 @@ class AIService:
             logging.error(f"AI_SVC: Failed to initialize Google GenAI client: {e}", exc_info=True)
             self.client = None # Ensure client is None on failure
 
-    def generate_playlist_from_prompt(self, prompt: str, model_override: Optional[str]) -> List[Tuple[str, str]]:
+    def get_critically_acclaimed_tracks(self, albums: List[Tuple[str, str]], model_override: Optional[str] = None) -> List[Tuple[str, str]]:
         """
-        Sends a prompt to the AI and expects a list of (Artist, Song) tuples.
-        Uses Google Gemini's generate_content with a tool for structured JSON output.
+        Takes a list of (Artist, Album) tuples and requests 12-25 critically acclaimed tracks.
         """
         if not self.client:
-            logging.error("AI_SVC: Google GenAI client not initialized (missing API key or library). Cannot generate playlist.")
-            raise ConnectionError("AI client not initialized. Check API key and ensure 'google-genai' library is installed.")
+            raise ConnectionError("AI client not initialized.")
 
+        # Construct valid CSV content with proper escaping for commas/quotes/newlines
+        buffer = io.StringIO(newline="")
+        writer = csv.writer(buffer)
+        writer.writerow(["Artist", "Album"])
+        for artist, album in albums:
+            writer.writerow([artist, album])
+        csv_content = buffer.getvalue()
+            
+        prompt_part = types.Part.from_text(
+            text=(
+                """I am sending a CSV attachment of music album titles and the corresponding artists. 
+                Use this list and search the web to find 12-25 critically acclaimed or popular 
+                music tracks from these albums, then return this list. Make sure that only tracks that are actually from the albums listed are included."""
+            )
+        )
+        
+        csv_part = types.Part.from_bytes(
+            data=csv_content.encode('utf-8'),
+            mime_type='text/csv'
+        )
+        logging.info(f"AI_SVC: Prepared CSV content for AI prompt:\n{csv_content}")
+        return self._generate_structured_playlist([prompt_part, csv_part], model_override)
+
+    def _generate_structured_playlist(self, contents: Union[str, List[Any]], model_override: Optional[str]) -> List[Tuple[str, str]]:
+        """
+        Shared logic for sending prompt and getting structured response.
+        """
         target_model = model_override if model_override else self.default_model
-        logging.info(f"AI_SVC: Requesting playlist from model '{target_model}' with prompt: '{prompt}'")
+        logging.info(f"AI_SVC: Requesting playlist from '{target_model}'")
 
-        # Define the tool for structured output using types.Tool and FunctionDeclaration
-        # This approach ensures strict adherence to the desired schema.
         playlist_tool = types.Tool(
             function_declarations=[
                 types.FunctionDeclaration(
@@ -93,47 +119,48 @@ class AIService:
 
         try:
             config = types.GenerateContentConfig(
-                tools=[playlist_tool],
+                tools=[playlist_tool,types.Tool(google_search=types.GoogleSearch())],
                 tool_config=types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(
                         mode='ANY',
                         allowed_function_names=['create_song_playlist']
                     )
                 ),
-                system_instruction="You are a helpful playlist assistant. Your task is to generate a list of songs based on the user's prompt. Please use the provided 'create_song_playlist' tool to format your response as a structured playlist."
+                system_instruction="You are a helpful playlist assistant. Your task is to generate a list of songs based on the user's prompt using the provided tool."
             )
             
             response = self.client.models.generate_content(
                 model=target_model,
-                contents=prompt,
+                contents=contents,
                 config=config
             )
+            
+            logging.info(f"AI_SVC: Full API Response: {response}")
 
-            # In the new SDK, response.function_calls is a convenient way to access tool calls.
             tool_call = None
             if response.function_calls:
                 tool_call = response.function_calls[0]
 
             if tool_call and tool_call.name == "create_song_playlist":
-                # tool_call.args is a dictionary containing the structured output.
                 playlist_data = tool_call.args
-
                 tracks = []
                 for item in playlist_data.get("playlist", []):
                     artist = item.get("artist")
                     song = item.get("song")
                     if artist and song:
                         tracks.append((str(artist).strip(), str(song).strip()))
-                    else:
-                        logging.warning(f"AI_SVC: Received incomplete track item from AI: {item}")
-                
-                if not tracks:
-                    logging.warning(f"AI_SVC: AI returned an empty playlist or malformed data for prompt: '{prompt}'. Data: {playlist_data}")
                 return tracks
             else:
-                logging.error(f"AI_SVC: AI did not use the 'create_song_playlist' tool as expected. Response received: {response}")
+                logging.error(f"AI_SVC: AI did not use the tool. Response: {response}")
                 return []
 
-        except Exception as e: # Catch any exception during API call
-            logging.error(f"AI_SVC: Error during Gemini API call to '{target_model}': {e}", exc_info=True)
-            raise ConnectionError(f"AI API call failed: {e}")
+        except Exception as e:
+            # Try to extract detailed error info if available (e.g. from google.genai.errors)
+            error_details = str(e)
+            if hasattr(e, 'status_code'):
+                error_details = f"Status: {e.status_code}, " + error_details
+            if hasattr(e, 'message'):
+                error_details += f", Message: {e.message}"
+                
+            logging.error(f"AI_SVC: Gemini API Call Failed. Details: {error_details}", exc_info=True)
+            raise ConnectionError(f"AI API call failed: {error_details}")
